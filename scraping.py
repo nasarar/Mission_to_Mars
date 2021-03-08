@@ -23,8 +23,11 @@ def scrape_all():
         'news_paragraph': news_p,
         'featured_image': featured_image(browser),
         'facts': mars_facts(),
-        'last_modified': dt.datetime.now()
+        'last_modified': dt.datetime.now(),
+        'hemispheres': hemisphere_data(browser) 
     }
+    
+
 
     browser.quit()
     return data
@@ -51,7 +54,7 @@ def mars_news(browser):
     try:
         #creates the first search
         #grabs the first item that matches both arguments
-        slide_elem = news_soup.select_one('ul.item li.slide')
+        slide_elem = news_soup.select_one('ul.item_list li.slide')
         
         #extracts the text title using the parent element
         news_title = slide_elem.find('div', class_='content_title').get_text()
@@ -106,11 +109,56 @@ def mars_facts():
         return None
 
     #sets the columns and assigns the index for the dataframe
-    df.columns = ['description', 'value']
-    df.set_index('description', inplace = True)
+    df.columns = ['Description', 'Mars']
+    df.set_index('Description', inplace = True)
 
     return df.to_html(classes = 'table table-striped')
     #likewise the dataframe can also be converted back into html for uploading into a new web page
+
+
+def hemisphere_data(browser):
+### GRABS ARTICLE TITLES AND HIGH RES IMAGES
+    #visits the browser
+    main_url = 'https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars'
+    main_enhanced = 'https://astrogeology.usgs.gov'
+    browser.visit(main_url)
+    
+    #creates a list to hold image url (string) and titles
+    hemisphere_image_urls = []
+    hemisphere_titles = []
+
+    html = browser.html
+    hemisphere_soup = soup(html, 'html.parser')
+    main_elem = hemisphere_soup.find_all('div', class_='item')
+
+    try: 
+        #retrieves the image urls and titles for each hemisphere 3.
+        for title_img in main_elem:
+            #gets the title from first page
+            hemisphere_titles =title_img.find('h3').get_text()
+
+            #builds the url for the second webpage to find full image url
+            part_enhanced = title_img.find('a')['href']
+            enhanced = main_enhanced + part_enhanced
+
+            #parses the enhanced webpage to get the URL
+            browser.visit(enhanced)
+            html2 = browser.html
+            enhanced_soup = soup(html2, 'html.parser')
+
+            downloads_elem = enhanced_soup.find('div', class_ = 'downloads')
+            image_urls = downloads_elem.find('a')['href']
+
+            #dictionary to hold title and images
+            hemisphere = dict({'Images': image_urls, 'Titles': hemisphere_titles})
+            hemisphere_image_urls.append(hemisphere)
+
+            
+    except BaseException:
+        return None
+
+    return hemisphere_image_urls
+
 
 if __name__ == '__main__':
     #if running as a script, print scraped data
